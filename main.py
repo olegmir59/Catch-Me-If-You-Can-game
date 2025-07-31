@@ -10,7 +10,7 @@ pygame.display.set_caption("Игра Поймай меня, если сможе�
 icon = pygame.image.load("img/icon.jpg")
 pygame.display.set_icon(icon)
 
-target_img = pygame.image.load("img/бабочка1.png")
+target_img = pygame.image.load("img/бабочка2.png")
 target_width = 80
 target_height = 80
 target_x = random.randint(0, SCREEN_WIDTH - target_width)
@@ -31,9 +31,7 @@ while running:
             target_x = random.randint(0, SCREEN_WIDTH - target_width)
             target_y = random.randint(0, SCREEN_HEIGHT - target_height)
 
-
-
-screen.blit(target_img, (target_x, target_y))
-pygame.display.update()
+    screen.blit(target_img, (target_x, target_y))
+    pygame.display.update()
 
 pygame.quit()
