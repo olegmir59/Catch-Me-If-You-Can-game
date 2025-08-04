@@ -1,3 +1,18 @@
+"""
+    Игра   Поймай меня, если сможешь
+
+    При попадании на гусеницу:
+
+Отображается вопрос.
+Три кнопки с вариантами.
+При клике — проверяется правильность.
+Если правильно — +30 очков.
+
+При попадании на ворону и бабочек:
+
+
+"""
+
 import random
 import pygame
 import sys
@@ -38,6 +53,18 @@ crow_img = pygame.transform.scale(crow_img, (400, 400))  # {{ edit_1 }}
 crow_x = random.randint(0, SCREEN_WIDTH - 400)  # {{ edit_1 }}
 crow_y = random.randint(0, SCREEN_HEIGHT - 400)
 
+caterpillar_img = pygame.image.load("img/гусеница_англ.jpg")
+caterpillar_img = pygame.transform.scale(caterpillar_img, (110, 160))  # Размер гусеницы
+caterpillar_x = random.randint(0, SCREEN_WIDTH - 110)
+caterpillar_y = random.randint(0, SCREEN_HEIGHT - 160)
+
+
+# Скорость и направление движения
+caterpillar_speed = 0.2
+caterpillar_dx = random.choice([-1, 1]) * caterpillar_speed
+caterpillar_dy = random.choice([-1, 1]) * caterpillar_speed
+
+
 color = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
 
 # Новые переменные для отображения сообщения
@@ -48,6 +75,35 @@ MESSAGE_DURATION = 1500  # 1.5 секунды
 # Флаг для проверки, нажата ли мышь
 start_game = False
 catch_count = 0
+
+show_question = False
+question_text = ""
+options = []
+correct_answer_index = -1
+selected_answer = -1
+
+
+def get_random_question():
+    try:
+        with open("questions.txt", "r", encoding="utf-8") as f:
+            lines = f.readlines()
+            line = random.choice(lines).strip()
+            parts = line.split(";")
+            if len(parts) != 4:
+                return None, None, None, None
+            question = parts[0]
+            option1 = parts[1]
+            option2 = parts[2]
+            correct = parts[3]
+            options = [option1, option2, correct]
+            random.shuffle(options)
+            correct_answer_index = options.index(correct)
+            return question, options, correct_answer_index
+    except FileNotFoundError:
+        print("Файл questions.txt не найден!")
+        return None, None, None, None
+
+
 # Функция для проверки попадания мыши по объекту
 def is_mouse_in_rect(mouse_pos, x, y, width, height):
     mx, my = mouse_pos
@@ -91,17 +147,44 @@ while True:
         if event.type == pygame.QUIT:
             pygame.quit()
             sys.exit()
+
+        elif event.type == pygame.MOUSEBUTTONDOWN and show_question:
+            mx, my = event.pos
+            button_width = 200
+            button_height = 50
+            for i in range(len(options)):
+                rect = pygame.Rect(SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 - 30 + i * 70, button_width, button_height)
+                if rect.collidepoint(mx, my):
+                    selected_answer = i
+                    if selected_answer == correct_answer_index:
+                        catch_count += 30  # Награда за правильный ответ
+                        print("Правильно!")
+                    else:
+                        print("Неправильно!")
+                    show_question = False
+
         elif event.type == pygame.MOUSEBUTTONDOWN:
             mouse_pressed = True
             mouse_pos = pygame.mouse.get_pos()
             if not start_game:
                 start_game = True
 
+
     # Отрисовка
     if not start_game:
         screen.blit(icon, (0, 0))
     else:
         screen.fill(color)
+
+        # Обновление позиции гусеницы
+        caterpillar_x += caterpillar_dx
+        caterpillar_y += caterpillar_dy
+
+        # Отскок от краёв экрана
+        if caterpillar_x <= 0 or caterpillar_x >= SCREEN_WIDTH - 110:
+            caterpillar_dx *= -1
+        if caterpillar_y <= 0 or caterpillar_y >= SCREEN_HEIGHT - 160:
+            caterpillar_dy *= -1
 
         hit_any = False
 
@@ -128,16 +211,25 @@ while True:
                 show_crow_message = True
                 message_timer = current_time
 
-            # Если был захват хотя бы одного объекта — перемещаем все
+            # Если был захват хотя бы одного объекта, указанного выше  — перемещаем все
             if hit_any:
                 move_all_objects()
+
+            # Проверка попадания по гусенице
+            if is_mouse_in_rect(mouse_pos, caterpillar_x, caterpillar_y, 60, 60):
+                show_question = True
+                question_text, options, correct_answer_index = get_random_question()
+                selected_answer = -1
+                catch_count += 30  # Бонус за попадание
+
+
 
         # Отрисовка объектов
         screen.blit(crow_img, (crow_x, crow_y))
         screen.blit(target_img, (target_x, target_y))
         screen.blit(target3_img, (target3_x, target3_y))
         screen.blit(target4_img, (target4_x, target4_y))
-
+        screen.blit(caterpillar_img, (caterpillar_x, caterpillar_y))
 
         # Отображение сообщения "КАР-КАР-КАР"
         if show_crow_message and current_time - message_timer < MESSAGE_DURATION:
@@ -147,6 +239,23 @@ while True:
             screen.blit(message_text, text_rect)
         elif show_crow_message:
             show_crow_message = False  # Скрыть сообщение после истечения времени
+
+        # Отображение вопроса
+        if show_question and question_text:
+            font = pygame.font.SysFont(None, 32)
+            question_surface = font.render(question_text, True, (255, 255, 255))
+            screen.blit(question_surface, (SCREEN_WIDTH // 2 - 200, SCREEN_HEIGHT // 2 - 100))
+
+            # Отрисовка кнопок с вариантами
+            button_width = 200
+            button_height = 50
+            for i, option in enumerate(options):
+                color = (255, 255, 0) if i == selected_answer else (0, 255, 0)
+                rect = pygame.Rect(SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 - 30 + i * 70, button_width, button_height)
+                pygame.draw.rect(screen, color, rect)
+                text = font.render(option, True, (0, 0, 0))
+                screen.blit(text, (rect.x + 10, rect.y + 10))
+
 
     # Отображение счёта
     font = pygame.font.SysFont(None, 36)
